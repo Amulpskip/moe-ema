@@ -8,6 +8,12 @@ const sb = (CONFIGURED && window.supabase) ? window.supabase.createClient(CFG.SU
 
 const $ = (s, r = document) => r.querySelector(s);
 function esc(t){ const d = document.createElement('div'); d.textContent = (t ?? ''); return d.innerHTML; }
+function cdnImg(url, w){
+  if(typeof url !== 'string' || !/^https?:\/\//.test(url)) return url;
+  if(url.includes('img.youtube.com') || url.includes('wsrv.nl')) return url;
+  const clean = url.replace(/^https?:\/\//, '');
+  return `https://wsrv.nl/?url=${encodeURIComponent(clean)}&w=${w}&output=webp&q=72`;
+}
 
 /* 画像のダウンロード抑止 */
 document.addEventListener('contextmenu', e=>{ if(e.target && e.target.tagName === 'IMG') e.preventDefault(); }, { capture:true });
@@ -27,7 +33,7 @@ function openLightbox(type, src){
     ? `<div class="lb-yt"><iframe src="https://www.youtube.com/embed/${src}?autoplay=1&rel=0&playsinline=1" title="YouTube" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe></div>`
     : (type === 'video')
     ? `<video src="${src}" controls autoplay playsinline></video>`
-    : `<img src="${src}" alt="">`;
+    : `<img src="${cdnImg(src,1400)}" alt="">`;
   lb.classList.add('show');
 }
 function closeLightbox(){ lb.classList.remove('show'); lbInner.innerHTML = ''; }
@@ -49,7 +55,7 @@ async function load(){
       ? `<img src="https://img.youtube.com/vi/${yt}/hqdefault.jpg" alt="" loading="lazy"><span class="m-play">▶</span>`
       : (x.type === 'video'
         ? `<video src="${esc(x.url)}#t=0.1" muted playsinline preload="metadata"></video><span class="m-play">▶</span>`
-        : `<img src="${esc(x.url)}" alt="" loading="lazy">`);
+        : `<img src="${esc(cdnImg(x.url,560))}" alt="" loading="lazy">`);
     const dtype = yt ? 'youtube' : x.type;
     const dsrc  = yt ? yt : esc(x.url);
     return `<figure class="m-item" data-type="${dtype}" data-src="${dsrc}">${media}${cap}</figure>`;

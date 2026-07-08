@@ -32,6 +32,14 @@ function toast(msg){
   document.addEventListener('dragstart',   e=>{ if(e.target && e.target.tagName === 'IMG') e.preventDefault(); }, { capture:true });
 })();
 
+/* ---------- 画像CDN（wsrv.nl経由でリサイズ&webp&キャッシュ→Supabase通信を激減） ---------- */
+function cdnImg(url, w){
+  if(typeof url !== 'string' || !/^https?:\/\//.test(url)) return url;      // 相対（同梱画像）はそのまま
+  if(url.includes('img.youtube.com') || url.includes('wsrv.nl')) return url; // 既に外部/変換済み
+  const clean = url.replace(/^https?:\/\//, '');
+  return `https://wsrv.nl/?url=${encodeURIComponent(clean)}&w=${w}&output=webp&q=72`;
+}
+
 /* ---------- YouTube ヘルパー（埋め込み・容量ゼロ） ---------- */
 function ytId(s){
   if(!s) return '';
@@ -72,7 +80,7 @@ function openLightbox(type, src){
     const v = document.createElement('video'); v.src = src; v.controls = true; v.autoplay = true; v.playsInline = true;
     lbInner.appendChild(v);
   } else {
-    const i = document.createElement('img'); i.src = src; lbInner.appendChild(i);
+    const i = document.createElement('img'); i.src = cdnImg(src, 1400); lbInner.appendChild(i);
   }
   lb.classList.add('show');
 }
@@ -166,9 +174,11 @@ function renderProfile(p){
   $('#profileData').innerHTML = rows.map(r=>`<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
   if(p.twitter_url){ $('#snsBtn').href = p.twitter_url; }
   if(p.heaven_url){ const h=$('#heavenBtn'); if(h) h.href = p.heaven_url; }
-  // トップ写真・プロフィール写真（運営が変更したURL）
-  const hero = $('.hero-img'); if(hero && p.hero_url && hero.getAttribute('src') !== p.hero_url) hero.src = p.hero_url;
-  const ppic = $('#profilePic'); if(ppic && p.profile_url && ppic.getAttribute('src') !== p.profile_url) ppic.src = p.profile_url;
+  // トップ写真・プロフィール写真（運営が変更したURL・CDN経由でリサイズ）
+  const heroSrc = cdnImg(p.hero_url, 1000);
+  const hero = $('.hero-img'); if(hero && p.hero_url && hero.getAttribute('src') !== heroSrc) hero.src = heroSrc;
+  const pSrc = cdnImg(p.profile_url, 640);
+  const ppic = $('#profilePic'); if(ppic && p.profile_url && ppic.getAttribute('src') !== pSrc) ppic.src = pSrc;
   renderRecommends(Array.isArray(p.recommends) ? p.recommends : []);
 }
 
@@ -208,7 +218,7 @@ function renderRecommends(list){
   $('#recoEmpty').hidden = true;
   $('#recoHint').hidden = (list.length < 2);
   wrap.innerHTML = list.map((r,i)=>{
-    const img = r.img ? `<img class="reco-img" src="${esc(r.img)}" alt="" loading="lazy">` : '';
+    const img = r.img ? `<img class="reco-img" src="${esc(cdnImg(r.img,420))}" alt="" loading="lazy">` : '';
     const mv  = `<div class="mv-bar admin-only"><button class="mv-btn" data-mv-reco="${i}" data-dir="-1" title="前へ">◀</button><button class="mv-btn" data-mv-reco="${i}" data-dir="1" title="後ろへ">▶</button></div>`;
     const del = `<button class="del-btn admin-only" data-del-reco="${i}">削除</button>`;
     return `<a class="reco-card" href="${esc(r.url)}" target="_blank" rel="noopener nofollow sponsored">
@@ -283,7 +293,7 @@ function drawOmikuji(){
   const img = imgs.length ? imgs[(Math.random()*imgs.length)|0] : '';
   $('#omikujiStage').innerHTML = `<div class="omi-result ${picked.cls}">
     <div class="omi-kanji">${picked.label}</div>
-    ${img ? `<img class="omi-img" src="${esc(img)}" alt="">` : ''}
+    ${img ? `<img class="omi-img" src="${esc(cdnImg(img,600))}" alt="">` : ''}
     ${msg ? `<div class="omi-msg">${esc(msg)}</div>` : ''}
   </div>`;
 }
@@ -302,7 +312,7 @@ function renderOmikujiEditor(){
   wrap.innerHTML = OMIKUJI_TYPES.map(t=>{
     const d = o[t.key];
     const msgs = d.messages.map((m,i)=>`<span class="omi-chip">${esc(m)}<button data-omi-delmsg="${t.key}:${i}" title="削除">✕</button></span>`).join('');
-    const imgs = d.images.map((u,i)=>`<span class="omi-thumb"><img src="${esc(u)}" alt=""><button data-omi-delimg="${t.key}:${i}" title="削除">✕</button></span>`).join('');
+    const imgs = d.images.map((u,i)=>`<span class="omi-thumb"><img src="${esc(cdnImg(u,120))}" alt=""><button data-omi-delimg="${t.key}:${i}" title="削除">✕</button></span>`).join('');
     return `<div class="omi-edit-block">
       <p class="omi-edit-title ${t.cls}">${t.label}</p>
       <div class="omi-chips">${msgs || '<span class="dim">メッセージ未登録（無ければ既定文を表示）</span>'}</div>
@@ -398,7 +408,7 @@ function renderGalleryMain(){
   } else if(m.type === 'video'){
     media = `<video class="gm-media" src="${esc(m.url)}#t=0.1" muted playsinline preload="metadata"></video><span class="play-badge"></span>`;
   } else {
-    media = `<img class="gm-media" src="${esc(m.url)}" alt="">`;
+    media = `<img class="gm-media" src="${esc(cdnImg(m.url,900))}" alt="">`;
   }
   const cap = m.caption ? `<figcaption class="gm-cap">${esc(m.caption)}</figcaption>` : '';
   stage.innerHTML = media + cap;
@@ -412,7 +422,7 @@ function renderGalleryThumbs(){
       ? `<img src="${ytThumb(ytIdOf(m),'mqdefault')}" alt="" loading="lazy"><span class="t-play">▶</span>`
       : (m.type === 'video'
         ? `<video src="${esc(m.url)}#t=0.1" muted preload="metadata"></video><span class="t-play">▶</span>`
-        : `<img src="${esc(m.url)}" alt="" loading="lazy">`);
+        : `<img src="${esc(cdnImg(m.url,320))}" alt="" loading="lazy">`);
     const adm = real ? `<div class="thumb-admin admin-only">
         <button class="t-mv" data-mv-media="${m.id}" data-dir="-1" title="前へ">◀</button>
         <button class="t-del" data-del-media="${m.id}" data-url="${esc(m.url)}" title="削除">✕</button>
