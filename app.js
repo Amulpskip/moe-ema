@@ -112,7 +112,7 @@ const PROFILE_SCHEMA = [
   ['service','接客スタイル'],['reserve','予 約']
 ];
 const LINK_SCHEMA = [
-  ['twitter_url','X(Twitter) URL'],['heaven_url','写メ日記・予約 URL'],['bmc_url','Buy Me a Coffee URL（投げ銭）']
+  ['twitter_url','X(Twitter) URL'],['heaven_url','写メ日記・予約 URL']
 ];
 /* おみくじ：種類（確率の重み）と既定メッセージ */
 const OMIKUJI_TYPES = [
@@ -146,7 +146,6 @@ const DEFAULT_PROFILE = {
   reserve:'シティヘブンから',
   twitter_url:'https://x.com/MOE_Emachi',
   heaven_url:'https://www.cityheaven.net/saitama/A1101/A110101/moegaku/girlid-44311496/',
-  bmc_url:'https://buymeacoffee.com/moe.ema',   // 投げ銭リンク（Buy Me a Coffee）
   hero_url:'images/photo1.jpg',      // トップ写真（運営が変更可）
   profile_url:'images/photo2.jpg',   // プロフィール写真（運営が変更可）
   recommends:[],                     // おすすめ商品（アフィリエイト）
@@ -175,12 +174,6 @@ function renderProfile(p){
   $('#profileData').innerHTML = rows.map(r=>`<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
   if(p.twitter_url){ $('#snsBtn').href = p.twitter_url; }
   if(p.heaven_url){ const h=$('#heavenBtn'); if(h) h.href = p.heaven_url; }
-  const bmc = $('#bmcBtn');
-  if(bmc){
-    if(p.bmc_url){ bmc.href = p.bmc_url; bmc.style.display = ''; }
-    else { bmc.style.display = 'none'; }
-    const be = $('#bmcEmpty'); if(be) be.hidden = !!p.bmc_url;
-  }
   // トップ写真・プロフィール写真（運営が変更したURL・CDN経由でリサイズ）
   const heroSrc = cdnImg(p.hero_url, 1000);
   const hero = $('.hero-img'); if(hero && p.hero_url && hero.getAttribute('src') !== heroSrc) hero.src = heroSrc;
