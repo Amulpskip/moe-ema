@@ -146,7 +146,7 @@ const DEFAULT_PROFILE = {
   reserve:'シティヘブンから',
   twitter_url:'https://x.com/MOE_Emachi',
   heaven_url:'https://www.cityheaven.net/saitama/A1101/A110101/moegaku/girlid-44311496/',
-  bmc_url:'',                        // 投げ銭リンク（Buy Me a Coffee・運営が設定）
+  bmc_url:'https://buymeacoffee.com/moe.ema',   // 投げ銭リンク（Buy Me a Coffee）
   hero_url:'images/photo1.jpg',      // トップ写真（運営が変更可）
   profile_url:'images/photo2.jpg',   // プロフィール写真（運営が変更可）
   recommends:[],                     // おすすめ商品（アフィリエイト）
