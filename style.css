@@ -287,7 +287,8 @@ body.is-admin .upload-row, body.is-admin .modal-actions{ display:flex !important
 /* ===== 投げ銭 / 応援（codoc） ===== */
 .support{ text-align:center; }
 .support-msg{ font-family:var(--min); line-height:1.9; color:var(--silver); margin-bottom:18px; }
-.codoc-wrap{ display:flex; flex-direction:column; align-items:center; gap:10px; min-height:44px; width:100%; max-width:680px; margin:0 auto; }
+.codoc-wrap{ display:flex; flex-direction:column; align-items:center; gap:10px; min-height:44px; width:100%; max-width:680px; margin:0 auto;
+  background:#fbfbfd; color:#1b1d1f; border-radius:16px; padding:18px 14px; box-shadow:0 0 26px rgba(183,160,255,.3); }
 .codoc-wrap .codoc-entries, .codoc-wrap .codoc-entry{ width:100%; }
 .support-note{ color:var(--rose); font-family:var(--min); font-size:13px; }
 .support-fine{ margin-top:12px; font-family:var(--dot); font-size:11px; color:var(--dim); }
