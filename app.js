@@ -199,7 +199,7 @@ function changeImage(targetKey){
     toast('アップロード中…');
     try{
       const path = `prof_${Date.now()}_${file.name.replace(/[^\w.\-]/g,'_')}`;
-      const { error:upErr } = await sb.storage.from('media').upload(path, file, { cacheControl:'3600', upsert:false });
+      const { error:upErr } = await sb.storage.from('media').upload(path, file, { cacheControl:'31536000', upsert:false });
       if(upErr) throw upErr;
       const { data:{ publicUrl } } = sb.storage.from('media').getPublicUrl(path);
       profileCache[targetKey] = publicUrl;
@@ -239,7 +239,7 @@ $('#recoAddBtn') && $('#recoAddBtn').addEventListener('click', async ()=>{
     const file = $('#recoFile').files[0];
     if(file){
       const path = `reco_${Date.now()}_${file.name.replace(/[^\w.\-]/g,'_')}`;
-      const { error:upErr } = await sb.storage.from('media').upload(path, file, { cacheControl:'3600', upsert:false });
+      const { error:upErr } = await sb.storage.from('media').upload(path, file, { cacheControl:'31536000', upsert:false });
       if(upErr) throw upErr;
       img = sb.storage.from('media').getPublicUrl(path).data.publicUrl;
     }
@@ -344,7 +344,7 @@ $('#omikujiEditor') && $('#omikujiEditor').addEventListener('click', async e=>{
     toast('アップロード中…');
     try{
       const path = `omi_${key}_${Date.now()}_${file.name.replace(/[^\w.\-]/g,'_')}`;
-      const { error:up } = await sb.storage.from('media').upload(path, file, { cacheControl:'3600', upsert:false }); if(up) throw up;
+      const { error:up } = await sb.storage.from('media').upload(path, file, { cacheControl:'31536000', upsert:false }); if(up) throw up;
       const url = sb.storage.from('media').getPublicUrl(path).data.publicUrl;
       o[key].images.push(url);
       if(await saveProfile()){ toast('画像を追加しました'); renderOmikujiEditor(); }
@@ -466,7 +466,7 @@ $('#uploadBtn').addEventListener('click', async ()=>{
   try{
     const safe = file.name.replace(/[^\w.\-]/g,'_');
     const path = `${Date.now()}_${safe}`;
-    const { error: upErr } = await sb.storage.from('media').upload(path, file, { cacheControl:'3600', upsert:false });
+    const { error: upErr } = await sb.storage.from('media').upload(path, file, { cacheControl:'31536000', upsert:false });
     if(upErr) throw upErr;
     const { data:{ publicUrl } } = sb.storage.from('media').getPublicUrl(path);
     const { error: insErr } = await sb.from('media').insert({ type: isVideo?'video':'image', url: publicUrl, caption: $('#mediaCaption').value.trim() || null });
