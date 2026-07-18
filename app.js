@@ -296,11 +296,12 @@ function drawOmikuji(){
     ${img ? `<img class="omi-img" src="${esc(cdnImg(img,600))}" alt="">` : ''}
     ${msg ? `<div class="omi-msg">${esc(msg)}</div>` : ''}
   </div>`;
+  return picked;
 }
 $('#omikujiBtn') && $('#omikujiBtn').addEventListener('click', ()=>{
   if(!isAdmin && omiDrawnToday()){ toast('今日はもう引いたよ！また明日♡'); updateOmikujiButtonState(); return; }
-  playOmikujiSound();
-  drawOmikuji();
+  const picked = drawOmikuji();
+  if(picked && picked.key === 'daikichi') playOmikujiSound();  // 音は大吉のときだけ
   try{ localStorage.setItem('omikuji_date', omiToday()); }catch(_){}
   updateOmikujiButtonState();
 });
