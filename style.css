@@ -436,20 +436,42 @@ body.is-admin .access-bar{ display:flex !important; }
   50%{ box-shadow:0 0 34px rgba(255,224,138,.75), inset 0 0 24px rgba(255,224,138,.18); } }
 @keyframes vipBadgeGlow{ 0%,100%{ box-shadow:0 0 10px rgba(255,206,77,.6); } 50%{ box-shadow:0 0 20px rgba(255,206,77,1); } }
 
-/* ---- 運営：VIP登録パネル ---- */
-.vip-add-row .vip-tier-sel{ font-family:var(--jp); font-size:14px; color:#fff; background:rgba(0,0,0,.25);
-  border:1px solid var(--line); border-radius:10px; padding:10px 12px; outline:none; cursor:pointer; }
-.vip-add-row .vip-tier-sel:focus{ border-color:var(--sky); box-shadow:0 0 12px rgba(143,210,255,.4); }
-.vip-list{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
-.vip-empty{ margin-top:12px; }
-.vip-item{ display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:10px;
-  border:1px solid var(--line); background:rgba(0,0,0,.22); }
+/* ---- 運営：VIPポイント・ランキングパネル ---- */
+.vip-add-row #vipPtName{ flex:1 1 180px; }
+.vip-add-row #vipPtAmount{ flex:0 0 160px; width:160px; }
 .vip-item-badge{ font-family:var(--fant); font-weight:800; font-size:11px; letter-spacing:1px;
   padding:3px 10px; border-radius:14px; white-space:nowrap; }
-.vip-item-name{ flex:1; font-weight:700; color:var(--white); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vip-item.vip-gold{ border-color:var(--gold); animation:none; box-shadow:none; }
-.vip-item.vip-gold .vip-item-badge{ color:#4a2f00; background:linear-gradient(180deg,#fff6d5,#ffce4d); }
-.vip-item.vip-silver{ border-color:#dfe7f5; box-shadow:none; }
-.vip-item.vip-silver .vip-item-badge{ color:#2a3550; background:linear-gradient(180deg,#ffffff,#c6d4ea); }
-.vip-item.vip-bronze{ border-color:#cd7f32; box-shadow:none; }
-.vip-item.vip-bronze .vip-item-badge{ color:#3a2410; background:linear-gradient(180deg,#f4c98f,#cd7f32); }
+.vip-empty{ margin-top:12px; }
+.vip-rank{ margin-top:14px; display:flex; flex-direction:column; gap:6px;
+  max-height:216px; overflow-y:auto; padding-right:6px;
+  scrollbar-width:thin; scrollbar-color:var(--emilia) rgba(255,255,255,.08); }
+.vip-rank::-webkit-scrollbar{ width:8px; }
+.vip-rank::-webkit-scrollbar-track{ background:rgba(255,255,255,.06); border-radius:10px; }
+.vip-rank::-webkit-scrollbar-thumb{ background:linear-gradient(180deg,var(--sky),var(--emilia)); border-radius:10px; }
+.vip-rank .vip-rank-head{ position:sticky; top:0; z-index:2; background:var(--night); }
+.vip-rank-row{ display:grid; grid-template-columns:34px minmax(80px,1fr) 92px 78px minmax(96px,1.2fr) auto;
+  align-items:center; gap:8px; padding:8px 10px; border-radius:10px;
+  border:1px solid var(--line); background:rgba(0,0,0,.22); font-size:13px; }
+.vip-rank-head{ background:transparent; border:none; padding:2px 10px; color:var(--dim);
+  font-family:var(--fant); font-size:11px; letter-spacing:1px; }
+.vip-rank-no{ font-family:var(--fant); font-weight:800; color:var(--dim); text-align:center; }
+.vip-rank-no-1{ color:#ffce4d; text-shadow:0 0 8px rgba(255,206,77,.7); }
+.vip-rank-no-2{ color:#dfe7f5; }
+.vip-rank-no-3{ color:#f0b878; }
+.vip-rank-name{ font-weight:700; color:var(--white); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vip-rank-pt{ font-family:var(--dot); font-weight:700; color:var(--gold); text-align:right; }
+.vip-rank-brk{ font-family:var(--dot); font-size:11px; color:var(--dim); white-space:nowrap; }
+.vip-rank-none{ color:var(--dim); }
+.vip-rank-row .del-btn{ font-size:11px; padding:4px 9px; }
+.vip-rank-row.vip-gold{ border-color:var(--gold); box-shadow:0 0 12px rgba(255,224,138,.25); }
+.vip-rank-row.vip-gold .vip-item-badge{ color:#4a2f00; background:linear-gradient(180deg,#fff6d5,#ffce4d); }
+.vip-rank-row.vip-silver{ border-color:#dfe7f5; }
+.vip-rank-row.vip-silver .vip-item-badge{ color:#2a3550; background:linear-gradient(180deg,#ffffff,#c6d4ea); }
+.vip-rank-row.vip-bronze{ border-color:#cd7f32; }
+.vip-rank-row.vip-bronze .vip-item-badge{ color:#3a2410; background:linear-gradient(180deg,#f4c98f,#cd7f32); }
+@media (max-width:560px){
+  .vip-rank-row{ grid-template-columns:26px minmax(60px,1fr) 74px 66px; row-gap:4px; }
+  .vip-rank-brk{ grid-column:2 / -1; }
+  .vip-rank-row .del-btn{ grid-column:2 / -1; justify-self:start; }
+  .vip-rank-head span:nth-child(5), .vip-rank-head span:nth-child(6){ display:none; }
+}

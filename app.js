@@ -149,7 +149,7 @@ const DEFAULT_PROFILE = {
   hero_url:'images/photo1.jpg',      // トップ写真（運営が変更可）
   profile_url:'images/photo2.jpg',   // プロフィール写真（運営が変更可）
   recommends:[],                     // おすすめ商品（アフィリエイト）
-  vips:[],                           // VIP会員（[{name, tier:'gold'|'silver'|'bronze'}]）
+  vipBonus:[],                       // VIP手動加算pt（[{name, pts}]／codoc投げ銭など）
   omikuji: JSON.parse(JSON.stringify(DEFAULT_OMIKUJI))   // おみくじの結果（運営が編集可）
 };
 let profileCache = {...DEFAULT_PROFILE};
@@ -641,25 +641,55 @@ $('#diaryModalClose') && $('#diaryModalClose').addEventListener('click', ()=> $(
 $('#diaryModal') && $('#diaryModal').addEventListener('click', e=>{ if(e.target.id === 'diaryModal') $('#diaryModal').classList.remove('show'); });
 
 /* ============================================================
-   VIP 会員（運営が名前で登録／コメントが豪華に装飾される）
-   金＞銀＞銅 の3階級。判定は「お名前」の一致（大小文字・前後空白は無視）。
-   データは profileCache.vips に保存（DBスキーマ変更不要）。
+   VIP 会員（ポイント制・自動集計）
+   ・コメント1件 = 100pt（名前ごとに集計。過去分も毎回数え直すので自動で遡及）
+   ・codoc投げ銭などは運営が手動で加算（profileCache.vipBonus に保存）
+   ・合計pt で階級を自動判定：🌟銅=1,000 / 💎銀=5,000 / 👑金=30,000
+   判定キーは「お名前」（大小文字・前後空白は無視）。DBスキーマ変更なし。
    ============================================================ */
 const VIP_TIERS = {
-  gold:   { key:'gold',   label:'金',   en:'GOLD',   icon:'👑', badge:'★MAX VIP★', sel:'👑 金（最上級）' },
-  silver: { key:'silver', label:'銀',   en:'SILVER', icon:'💎', badge:'S-VIP',     sel:'💎 銀（上級）' },
-  bronze: { key:'bronze', label:'銅',   en:'BRONZE', icon:'🌟', badge:'VIP',       sel:'🌟 銅（VIP）' },
+  gold:   { key:'gold',   label:'金', en:'GOLD',   icon:'👑', badge:'★MAX VIP★' },
+  silver: { key:'silver', label:'銀', en:'SILVER', icon:'💎', badge:'S-VIP' },
+  bronze: { key:'bronze', label:'銅', en:'BRONZE', icon:'🌟', badge:'VIP' },
 };
-const VIP_ORDER = ['gold','silver','bronze'];
-function normTier(t){ return VIP_TIERS[t] ? t : 'bronze'; }
-function vipList(){ return Array.isArray(profileCache.vips) ? profileCache.vips : (profileCache.vips = []); }
+const PT_PER_COMMENT = 100;
+const VIP_THRESHOLDS = { gold:30000, silver:5000, bronze:1000 };   // ← 配分はここを変えるだけ
+let VIP_POINTS = {};   // key(name) -> { name, comments, bonus, points, tier }
+
 function vipKey(name){ return String(name ?? '').trim().toLowerCase(); }
-/* 名前 → 階級（'gold'|'silver'|'bronze'）／未登録は null */
-function getVipTier(name){
-  const k = vipKey(name); if(!k) return null;
-  const hit = vipList().find(v=> vipKey(v.name) === k);
-  return hit ? normTier(hit.tier) : null;
+function tierForPoints(p){
+  if(p >= VIP_THRESHOLDS.gold)   return 'gold';
+  if(p >= VIP_THRESHOLDS.silver) return 'silver';
+  if(p >= VIP_THRESHOLDS.bronze) return 'bronze';
+  return null;
 }
+function vipBonusList(){ return Array.isArray(profileCache.vipBonus) ? profileCache.vipBonus : (profileCache.vipBonus = []); }
+
+/* コメント全件 → 名前ごとのポイント表を構築（一般＋日記コメント、非運営のみ） */
+function buildVipPoints(comments){
+  const m = {};
+  (comments || []).forEach(c=>{
+    if(c.is_admin) return;                       // 運営の返信は加点しない
+    const nm = String(c.name ?? '').trim();
+    if(!nm) return;                              // 名無しは集計対象外
+    const k = vipKey(nm);
+    (m[k] ||= { name:nm, comments:0, bonus:0 }).comments++;
+  });
+  vipBonusList().forEach(b=>{                     // 手動加算（投げ銭など）
+    const nm = String(b.name ?? '').trim(); if(!nm) return;
+    const k = vipKey(nm);
+    (m[k] ||= { name:nm, comments:0, bonus:0 }).bonus += Number(b.pts) || 0;
+  });
+  Object.values(m).forEach(e=>{
+    e.points = e.comments * PT_PER_COMMENT + e.bonus;
+    e.tier   = tierForPoints(e.points);
+  });
+  VIP_POINTS = m;
+  return m;
+}
+/* 名前 → 階級（集計済みのポイント表から）／VIP未満は null */
+function getVipTier(name){ const e = VIP_POINTS[vipKey(name)]; return e ? e.tier : null; }
+
 /* コメントカードに付与する属性（クラス・名前前アイコン・バッジHTML） */
 function vipDecor(name){
   const tier = getVipTier(name);
@@ -672,44 +702,55 @@ function vipDecor(name){
   };
 }
 
-/* 運営：VIP登録パネルの描画 */
+/* 運営：VIPポイント・ランキングの描画 */
 function renderVipAdmin(){
-  const wrap = $('#vipList'); if(!wrap) return;
-  const list = vipList();
-  if(!list.length){ wrap.innerHTML = '<p class="dim vip-empty">まだVIP登録はありません。</p>'; return; }
-  // 階級順（金→銀→銅）に並べて表示
-  const sorted = list.map((v,i)=>({ v, i })).sort((a,b)=> VIP_ORDER.indexOf(normTier(a.v.tier)) - VIP_ORDER.indexOf(normTier(b.v.tier)));
-  wrap.innerHTML = sorted.map(({v,i})=>{
-    const T = VIP_TIERS[normTier(v.tier)];
-    return `<div class="vip-item vip-${normTier(v.tier)}">
-      <span class="vip-item-badge">${T.icon} ${T.en}</span>
-      <span class="vip-item-name">${esc(v.name)}</span>
-      <button class="del-btn" data-del-vip="${i}">削除</button>
+  const wrap = $('#vipRank'); if(!wrap) return;
+  const rows = Object.values(VIP_POINTS).sort((a,b)=> b.points - a.points);
+  if(!rows.length){ wrap.innerHTML = '<p class="dim vip-empty">まだ集計対象のコメントがありません。</p>'; return; }
+  const head = `<div class="vip-rank-row vip-rank-head"><span>#</span><span>名前</span><span>階級</span><span>合計pt</span><span>内訳</span><span></span></div>`;
+  wrap.innerHTML = head + rows.map((e,i)=>{
+    const T = e.tier ? VIP_TIERS[e.tier] : null;
+    const badge = T ? `<span class="vip-item-badge">${T.icon} ${T.en}</span>` : '<span class="vip-rank-none">―</span>';
+    const rankCls = i < 3 ? ` vip-rank-no-${i+1}` : '';
+    const bonus = e.bonus;
+    const brk = `💬${e.comments}×100` + (bonus ? `　${bonus > 0 ? '+' : ''}${bonus.toLocaleString()}` : '');
+    const resetBtn = bonus ? `<button class="del-btn" data-reset-bonus="${esc(vipKey(e.name))}" title="手動ボーナスを0に戻す">ﾎﾞｰﾅｽ解除</button>` : '';
+    return `<div class="vip-rank-row${e.tier ? ' vip-'+e.tier : ''}">
+      <span class="vip-rank-no${rankCls}">${i+1}</span>
+      <span class="vip-rank-name">${esc(e.name)}</span>
+      <span>${badge}</span>
+      <span class="vip-rank-pt">${e.points.toLocaleString()}</span>
+      <span class="vip-rank-brk">${brk}</span>
+      <span>${resetBtn}</span>
     </div>`;
   }).join('');
 }
-$('#vipAddBtn') && $('#vipAddBtn').addEventListener('click', async ()=>{
+/* 運営：手動でポイント加算（codoc投げ銭など・マイナスで減算も可） */
+$('#vipPtAddBtn') && $('#vipPtAddBtn').addEventListener('click', async ()=>{
   if(!requireBackend()) return;
-  const name = $('#vipName').value.trim();
-  const tier = normTier($('#vipTier').value);
-  if(!name){ toast('VIPにするお名前を入れてください'); return; }
-  const list = vipList();
-  const k = vipKey(name);
-  const exist = list.find(v=> vipKey(v.name) === k);
-  if(exist){ exist.tier = tier; }            // 既存の名前は階級を更新
-  else { list.push({ name, tier }); }
+  const name = $('#vipPtName').value.trim();
+  const amt  = parseInt($('#vipPtAmount').value, 10);
+  if(!name){ toast('名前を入れてください'); return; }
+  if(!amt){ toast('加算するポイントを入れてください'); return; }
+  const list = vipBonusList(), k = vipKey(name);
+  const ex = list.find(b=> vipKey(b.name) === k);
+  if(ex){ ex.pts = (Number(ex.pts) || 0) + amt; }
+  else { list.push({ name, pts: amt }); }
+  const st = $('#vipPtStatus');
   if(await saveProfile()){
-    $('#vipName').value='';
-    toast(exist ? 'VIPの階級を更新しました' : 'VIPを登録しました');
-    renderVipAdmin(); loadComments();
+    $('#vipPtName').value = ''; $('#vipPtAmount').value = '';
+    if(st){ st.textContent = `${name} に ${amt > 0 ? '+' : ''}${amt.toLocaleString()}pt を反映しました`; setTimeout(()=> st.textContent = '', 4000); }
+    toast('ポイントを加算しました');
+    await loadComments();   // 集計・ランキング・コメント装飾をすべて再構築
   }
 });
-$('#vipName') && $('#vipName').addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); $('#vipAddBtn').click(); } });
-$('#vipList') && $('#vipList').addEventListener('click', async e=>{
-  const del = e.target.closest('[data-del-vip]'); if(!del) return;
-  if(!confirm('このVIP登録を解除しますか？')) return;
-  vipList().splice(parseInt(del.dataset.delVip,10), 1);
-  if(await saveProfile()){ toast('VIPを解除しました'); renderVipAdmin(); loadComments(); }
+$('#vipPtAmount') && $('#vipPtAmount').addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); $('#vipPtAddBtn').click(); } });
+/* 運営：手動ボーナスのリセット（コメント分のptは残る） */
+$('#vipRank') && $('#vipRank').addEventListener('click', async e=>{
+  const r = e.target.closest('[data-reset-bonus]'); if(!r) return;
+  if(!confirm('この人の手動ボーナスを0に戻しますか？（コメント分のポイントは残ります）')) return;
+  profileCache.vipBonus = vipBonusList().filter(b=> vipKey(b.name) !== r.dataset.resetBonus);
+  if(await saveProfile()){ toast('手動ボーナスをリセットしました'); await loadComments(); }
 });
 
 /* ---------- コメント ---------- */
@@ -717,6 +758,8 @@ async function loadComments(){
   if(!sb) return;
   const { data, error } = await sb.from('comments').select('*').order('created_at',{ascending:true});
   if(error){ console.warn(error); return; }
+  buildVipPoints(data);   // 全コメントからVIPポイントを集計（一般＋日記）→装飾・ランキングに使用
+  renderVipAdmin();
   const gen = data.filter(c=> !c.diary_id);               // 一般コメント欄（日記コメントは除外）
   const tops = gen.filter(c=> !c.parent_id).reverse();    // 最新を左に
   const repliesByParent = {};

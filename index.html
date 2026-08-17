@@ -128,18 +128,15 @@
   <h2 class="sec-title" data-num="IV"><span class="en">COMMENT</span><span class="jp">― えまへの手紙 ―</span></h2>
 
   <div class="admin-only admin-panel" id="vipPanel">
-    <p class="panel-head">👑 VIP会員を登録（この名前でコメントすると豪華に表示されます）</p>
+    <p class="panel-head">👑 VIPポイント（コメント1件＝100pt・自動集計）</p>
+    <p class="upload-hint">階級は合計ptで自動判定 → 🌟銅 1,000pt ／ 💎銀 5,000pt ／ 👑金 30,000pt。<br>codocの投げ銭などは下の欄で手動加算できます（マイナス入力で減算・訂正も可）。</p>
     <div class="upload-row vip-add-row">
-      <input type="text" id="vipName" placeholder="VIPにするお名前（コメント時と同じ表記）" maxlength="24">
-      <select id="vipTier" class="vip-tier-sel">
-        <option value="gold">👑 金（最上級）</option>
-        <option value="silver">💎 銀（上級）</option>
-        <option value="bronze" selected>🌟 銅（VIP）</option>
-      </select>
-      <button class="btn" id="vipAddBtn">登録</button>
+      <input type="text" id="vipPtName" placeholder="名前（コメント時と同じ表記）" maxlength="24">
+      <input type="number" id="vipPtAmount" placeholder="加算pt（投げ銭など）" step="100">
+      <button class="btn" id="vipPtAddBtn">加算</button>
     </div>
-    <p class="upload-hint">※判定は「お名前」の一致（大文字小文字・前後の空白は無視）。同じ名前を再登録すると階級を変更できます。</p>
-    <div class="vip-list" id="vipList"></div>
+    <p class="upload-status" id="vipPtStatus"></p>
+    <div class="vip-rank" id="vipRank"></div>
   </div>
 
   <form class="comment-form" id="commentForm">
