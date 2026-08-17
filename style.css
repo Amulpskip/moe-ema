@@ -470,8 +470,12 @@ body.is-admin .access-bar{ display:flex !important; }
 .vip-rank-row.vip-bronze{ border-color:#cd7f32; }
 .vip-rank-row.vip-bronze .vip-item-badge{ color:#3a2410; background:linear-gradient(180deg,#f4c98f,#cd7f32); }
 @media (max-width:560px){
-  .vip-rank-row{ grid-template-columns:26px minmax(60px,1fr) 74px 66px; row-gap:4px; }
+  .vip-rank-row{ grid-template-columns:26px minmax(60px,1fr) 74px 66px; row-gap:5px; align-items:center; }
   .vip-rank-brk{ grid-column:2 / -1; }
-  .vip-rank-row .del-btn{ grid-column:2 / -1; justify-self:start; }
+  /* ボーナス解除は横長バーで下段に（縦潰れ防止）。ボタン無しの空セルは詰める */
+  .vip-rank-reset:empty{ display:none; }
+  .vip-rank-reset:not(:empty){ grid-column:1 / -1; }
+  .vip-rank-reset .del-btn{ display:block; width:100%; white-space:nowrap;
+    text-align:center; padding:6px 0; border-radius:8px; }
   .vip-rank-head span:nth-child(5), .vip-rank-head span:nth-child(6){ display:none; }
 }

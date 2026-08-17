@@ -721,7 +721,7 @@ function renderVipAdmin(){
       <span>${badge}</span>
       <span class="vip-rank-pt">${e.points.toLocaleString()}</span>
       <span class="vip-rank-brk">${brk}</span>
-      <span>${resetBtn}</span>
+      <span class="vip-rank-reset">${resetBtn}</span>
     </div>`;
   }).join('');
 }
