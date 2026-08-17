@@ -648,9 +648,9 @@ $('#diaryModal') && $('#diaryModal').addEventListener('click', e=>{ if(e.target.
    判定キーは「お名前」（大小文字・前後空白は無視）。DBスキーマ変更なし。
    ============================================================ */
 const VIP_TIERS = {
-  gold:   { key:'gold',   label:'金', en:'GOLD',   icon:'👑', badge:'★MAX VIP★' },
-  silver: { key:'silver', label:'銀', en:'SILVER', icon:'💎', badge:'S-VIP' },
-  bronze: { key:'bronze', label:'銅', en:'BRONZE', icon:'🌟', badge:'VIP' },
+  gold:   { key:'gold',   label:'金', en:'GOLD',   icon:'👑', badge:'MAX VIP様' },
+  silver: { key:'silver', label:'銀', en:'SILVER', icon:'💎', badge:'VIP' },
+  bronze: { key:'bronze', label:'銅', en:'BRONZE', icon:'🌟', badge:'理解者' },
 };
 const PT_PER_COMMENT = 100;
 const VIP_THRESHOLDS = { gold:30000, silver:5000, bronze:1000 };   // ← 配分はここを変えるだけ
