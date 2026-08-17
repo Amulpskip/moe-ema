@@ -127,6 +127,21 @@
 <section class="section comments" id="comments">
   <h2 class="sec-title" data-num="IV"><span class="en">COMMENT</span><span class="jp">― えまへの手紙 ―</span></h2>
 
+  <div class="admin-only admin-panel" id="vipPanel">
+    <p class="panel-head">👑 VIP会員を登録（この名前でコメントすると豪華に表示されます）</p>
+    <div class="upload-row vip-add-row">
+      <input type="text" id="vipName" placeholder="VIPにするお名前（コメント時と同じ表記）" maxlength="24">
+      <select id="vipTier" class="vip-tier-sel">
+        <option value="gold">👑 金（最上級）</option>
+        <option value="silver">💎 銀（上級）</option>
+        <option value="bronze" selected>🌟 銅（VIP）</option>
+      </select>
+      <button class="btn" id="vipAddBtn">登録</button>
+    </div>
+    <p class="upload-hint">※判定は「お名前」の一致（大文字小文字・前後の空白は無視）。同じ名前を再登録すると階級を変更できます。</p>
+    <div class="vip-list" id="vipList"></div>
+  </div>
+
   <form class="comment-form" id="commentForm">
     <input type="text" id="commentName" placeholder="お名前（任意・空欄なら名無し）" maxlength="24">
     <textarea id="commentBody" placeholder="えまちにﾒｯｾｰｼﾞちょうだい♡" maxlength="500" required></textarea>

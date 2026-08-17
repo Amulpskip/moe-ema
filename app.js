@@ -149,6 +149,7 @@ const DEFAULT_PROFILE = {
   hero_url:'images/photo1.jpg',      // トップ写真（運営が変更可）
   profile_url:'images/photo2.jpg',   // プロフィール写真（運営が変更可）
   recommends:[],                     // おすすめ商品（アフィリエイト）
+  vips:[],                           // VIP会員（[{name, tier:'gold'|'silver'|'bronze'}]）
   omikuji: JSON.parse(JSON.stringify(DEFAULT_OMIKUJI))   // おみくじの結果（運営が編集可）
 };
 let profileCache = {...DEFAULT_PROFILE};
@@ -180,6 +181,7 @@ function renderProfile(p){
   const pSrc = cdnImg(p.profile_url, 640);
   const ppic = $('#profilePic'); if(ppic && p.profile_url && ppic.getAttribute('src') !== pSrc) ppic.src = pSrc;
   renderRecommends(Array.isArray(p.recommends) ? p.recommends : []);
+  renderVipAdmin();
 }
 
 /* ---------- プロフィールJSONの保存（画像・おすすめ共通） ---------- */
@@ -570,8 +572,10 @@ $('#diaryFeed').addEventListener('click', e=>{
 });
 function diaryCommentCardHtml(c, replies){
   const reps = (replies||[]).map(r=>`<div class="reply"><div class="c-head"><span class="c-name"></span><span class="c-date">${fmtDate(r.created_at)}</span><button class="del-btn admin-only" data-del-comment="${r.id}">削除</button></div><div class="c-body">${esc(r.body)}</div></div>`).join('');
-  return `<div class="comment" data-id="${c.id}">
-    <div class="c-head"><span class="c-name">${esc(c.name)||'名無しさん'}</span><span class="c-date">${fmtDate(c.created_at)}</span></div>
+  const v = vipDecor(c.name);
+  return `<div class="comment${v.cls}" data-id="${c.id}">
+    ${v.badge}
+    <div class="c-head"><span class="c-name">${v.icon}${esc(c.name)||'名無しさん'}</span><span class="c-date">${fmtDate(c.created_at)}</span></div>
     <div class="c-body">${esc(c.body)}</div>
     <div class="c-actions admin-only"><button class="btn-ghost" data-reply="${c.id}" data-diary="${esc(c.diary_id)}">返信</button><button class="del-btn" data-del-comment="${c.id}">削除</button></div>
     ${reps}
@@ -636,6 +640,78 @@ $('#diaryDetail') && $('#diaryDetail').addEventListener('click', async e=>{
 $('#diaryModalClose') && $('#diaryModalClose').addEventListener('click', ()=> $('#diaryModal').classList.remove('show'));
 $('#diaryModal') && $('#diaryModal').addEventListener('click', e=>{ if(e.target.id === 'diaryModal') $('#diaryModal').classList.remove('show'); });
 
+/* ============================================================
+   VIP 会員（運営が名前で登録／コメントが豪華に装飾される）
+   金＞銀＞銅 の3階級。判定は「お名前」の一致（大小文字・前後空白は無視）。
+   データは profileCache.vips に保存（DBスキーマ変更不要）。
+   ============================================================ */
+const VIP_TIERS = {
+  gold:   { key:'gold',   label:'金',   en:'GOLD',   icon:'👑', badge:'★MAX VIP★', sel:'👑 金（最上級）' },
+  silver: { key:'silver', label:'銀',   en:'SILVER', icon:'💎', badge:'S-VIP',     sel:'💎 銀（上級）' },
+  bronze: { key:'bronze', label:'銅',   en:'BRONZE', icon:'🌟', badge:'VIP',       sel:'🌟 銅（VIP）' },
+};
+const VIP_ORDER = ['gold','silver','bronze'];
+function normTier(t){ return VIP_TIERS[t] ? t : 'bronze'; }
+function vipList(){ return Array.isArray(profileCache.vips) ? profileCache.vips : (profileCache.vips = []); }
+function vipKey(name){ return String(name ?? '').trim().toLowerCase(); }
+/* 名前 → 階級（'gold'|'silver'|'bronze'）／未登録は null */
+function getVipTier(name){
+  const k = vipKey(name); if(!k) return null;
+  const hit = vipList().find(v=> vipKey(v.name) === k);
+  return hit ? normTier(hit.tier) : null;
+}
+/* コメントカードに付与する属性（クラス・名前前アイコン・バッジHTML） */
+function vipDecor(name){
+  const tier = getVipTier(name);
+  if(!tier) return { cls:'', icon:'', badge:'' };
+  const T = VIP_TIERS[tier];
+  return {
+    cls: ` vip vip-${tier}`,
+    icon: `<span class="vip-icon" aria-hidden="true">${T.icon}</span>`,
+    badge: `<span class="vip-badge vip-badge-${tier}">${T.icon} ${T.badge}</span>`,
+  };
+}
+
+/* 運営：VIP登録パネルの描画 */
+function renderVipAdmin(){
+  const wrap = $('#vipList'); if(!wrap) return;
+  const list = vipList();
+  if(!list.length){ wrap.innerHTML = '<p class="dim vip-empty">まだVIP登録はありません。</p>'; return; }
+  // 階級順（金→銀→銅）に並べて表示
+  const sorted = list.map((v,i)=>({ v, i })).sort((a,b)=> VIP_ORDER.indexOf(normTier(a.v.tier)) - VIP_ORDER.indexOf(normTier(b.v.tier)));
+  wrap.innerHTML = sorted.map(({v,i})=>{
+    const T = VIP_TIERS[normTier(v.tier)];
+    return `<div class="vip-item vip-${normTier(v.tier)}">
+      <span class="vip-item-badge">${T.icon} ${T.en}</span>
+      <span class="vip-item-name">${esc(v.name)}</span>
+      <button class="del-btn" data-del-vip="${i}">削除</button>
+    </div>`;
+  }).join('');
+}
+$('#vipAddBtn') && $('#vipAddBtn').addEventListener('click', async ()=>{
+  if(!requireBackend()) return;
+  const name = $('#vipName').value.trim();
+  const tier = normTier($('#vipTier').value);
+  if(!name){ toast('VIPにするお名前を入れてください'); return; }
+  const list = vipList();
+  const k = vipKey(name);
+  const exist = list.find(v=> vipKey(v.name) === k);
+  if(exist){ exist.tier = tier; }            // 既存の名前は階級を更新
+  else { list.push({ name, tier }); }
+  if(await saveProfile()){
+    $('#vipName').value='';
+    toast(exist ? 'VIPの階級を更新しました' : 'VIPを登録しました');
+    renderVipAdmin(); loadComments();
+  }
+});
+$('#vipName') && $('#vipName').addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); $('#vipAddBtn').click(); } });
+$('#vipList') && $('#vipList').addEventListener('click', async e=>{
+  const del = e.target.closest('[data-del-vip]'); if(!del) return;
+  if(!confirm('このVIP登録を解除しますか？')) return;
+  vipList().splice(parseInt(del.dataset.delVip,10), 1);
+  if(await saveProfile()){ toast('VIPを解除しました'); renderVipAdmin(); loadComments(); }
+});
+
 /* ---------- コメント ---------- */
 async function loadComments(){
   if(!sb) return;
@@ -654,9 +730,11 @@ async function loadComments(){
       <div class="reply"><div class="c-head"><span class="c-name"></span><span class="c-date">${fmtDate(r.created_at)}</span>
       <button class="del-btn admin-only" data-del-comment="${r.id}">削除</button></div>
       <div class="c-body">${esc(r.body)}</div></div>`).join('');
-    return `<div class="comment" data-id="${c.id}">
+    const v = vipDecor(c.name);
+    return `<div class="comment${v.cls}" data-id="${c.id}">
+      ${v.badge}
       <div class="c-head">
-        <span class="c-name">${esc(c.name) || '名無しさん'}</span>
+        <span class="c-name">${v.icon}${esc(c.name) || '名無しさん'}</span>
         <span class="c-date">${fmtDate(c.created_at)}</span>
       </div>
       <div class="c-body">${esc(c.body)}</div>
