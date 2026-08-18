@@ -128,6 +128,8 @@ const DEFAULT_OMIKUJI = {
   kyo:{ messages:['今日は無理しないで。えまがギュッてしてあげる♡','凶でも大丈夫、明日は上がるだけ！'], images:[] },
 };
 const OMIKUJI_KEYS = OMIKUJI_TYPES.map(t=>t.key);
+/* おみくじで名前入力フォームを出す結果と、その付与ポイント（VIPポイントに合算） */
+const OMIKUJI_BONUS = { daikichi:100, kyo:200 };
 function normalizeOmikuji(o){
   o = (o && typeof o === 'object') ? o : {};
   OMIKUJI_KEYS.forEach(k=>{
@@ -293,13 +295,50 @@ function drawOmikuji(){
   const imgs = d.images || [];
   const msg = msgs.length ? msgs[(Math.random()*msgs.length)|0] : '';
   const img = imgs.length ? imgs[(Math.random()*imgs.length)|0] : '';
+  const bonus = OMIKUJI_BONUS[picked.key] || 0;   // 大吉100 / 凶200 のときポイント受取フォームを出す
+  const ptForm = bonus ? `
+    <div class="omi-pt-form" data-kind="${picked.key}" data-pts="${bonus}">
+      <p class="omi-pt-label">🎁 ${picked.label}ボーナス <b>+${bonus}pt</b>！なまえを入れて受け取ってね♡</p>
+      <div class="omi-pt-row">
+        <input type="text" class="omi-pt-name" placeholder="なまえ（コメントと同じ表記）" maxlength="24">
+        <button class="btn omi-pt-btn" type="button">ポイント受取</button>
+      </div>
+      <p class="omi-pt-note">※コメントで使うお名前と同じにすると、VIP判定に合算されるよ</p>
+      <p class="omi-pt-done" hidden>受け取ったよ！ありがとう♡</p>
+    </div>` : '';
   $('#omikujiStage').innerHTML = `<div class="omi-result ${picked.cls}">
     <div class="omi-kanji">${picked.label}</div>
     ${img ? `<img class="omi-img" src="${esc(cdnImg(img,600))}" alt="">` : ''}
     ${msg ? `<div class="omi-msg">${esc(msg)}</div>` : ''}
+    ${ptForm}
   </div>`;
   return picked;
 }
+/* おみくじボーナスの受取（来訪者が名前入力→omikuji_pointsに加算） */
+$('#omikujiStage') && $('#omikujiStage').addEventListener('click', async e=>{
+  const btn = e.target.closest('.omi-pt-btn'); if(!btn) return;
+  const form = btn.closest('.omi-pt-form'); if(!form) return;
+  if(!requireBackend()) return;
+  const name = form.querySelector('.omi-pt-name').value.trim();
+  const pts  = parseInt(form.dataset.pts, 10) || 0;
+  const kind = form.dataset.kind;
+  if(!name){ toast('なまえを入れてね♡'); return; }
+  if(!pts){ return; }
+  btn.disabled = true;
+  const { error } = await sb.from('omikuji_points').insert({ name, pts, kind });
+  if(error){
+    btn.disabled = false;
+    const missingTable = /could not find the table|does not exist|schema cache|relation .* does not/i.test(error.message || '');
+    toast(missingTable ? 'ポイント機能は準備中です（運営がSQLを実行すると使えます）' : '受取に失敗: ' + error.message);
+    return;
+  }
+  form.querySelector('.omi-pt-row').hidden = true;
+  form.querySelector('.omi-pt-note').hidden = true;
+  const done = form.querySelector('.omi-pt-done'); done.hidden = false;
+  done.textContent = `+${pts}pt 受け取ったよ！ありがとう♡`;
+  toast(`${name} に +${pts}pt♡`);
+  loadComments();   // ランキング・コメント装飾を更新
+});
 $('#omikujiBtn') && $('#omikujiBtn').addEventListener('click', ()=>{
   if(!isAdmin && omiDrawnToday()){ toast('今日はもう引いたよ！また明日♡'); updateOmikujiButtonState(); return; }
   const picked = drawOmikuji();
@@ -648,9 +687,9 @@ $('#diaryModal') && $('#diaryModal').addEventListener('click', e=>{ if(e.target.
    判定キーは「お名前」（大小文字・前後空白は無視）。DBスキーマ変更なし。
    ============================================================ */
 const VIP_TIERS = {
-  gold:   { key:'gold',   label:'金', en:'GOLD',   icon:'👑', badge:'MAX VIP様' },
-  silver: { key:'silver', label:'銀', en:'SILVER', icon:'💎', badge:'VIP' },
-  bronze: { key:'bronze', label:'銅', en:'BRONZE', icon:'🌟', badge:'理解者' },
+  gold:   { key:'gold',   label:'金', en:'GOLD',   icon:'👑', badge:'えまちﾏｽﾀｰ' },
+  silver: { key:'silver', label:'銀', en:'SILVER', icon:'💎', badge:'えまち検定準1級' },
+  bronze: { key:'bronze', label:'銅', en:'BRONZE', icon:'🌟', badge:'えまち検定初級' },
 };
 const PT_PER_COMMENT = 100;
 const VIP_THRESHOLDS = { gold:30000, silver:5000, bronze:1000 };   // ← 配分はここを変えるだけ
@@ -665,27 +704,42 @@ function tierForPoints(p){
 }
 function vipBonusList(){ return Array.isArray(profileCache.vipBonus) ? profileCache.vipBonus : (profileCache.vipBonus = []); }
 
-/* コメント全件 → 名前ごとのポイント表を構築（一般＋日記コメント、非運営のみ） */
-function buildVipPoints(comments){
+/* コメント等 → 名前ごとのポイント表を構築
+   ・コメント（一般＋日記／非運営）＝1件100pt
+   ・おみくじボーナス（大吉100/凶200／来訪者が名前入力）＝omikuji_pointsテーブル
+   ・手動加算（codoc投げ銭など／運営）＝profileCache.vipBonus */
+function vipEntry(m, name){
+  const nm = String(name ?? '').trim(); if(!nm) return null;
+  const k = vipKey(nm);
+  return (m[k] ||= { name:nm, comments:0, omikuji:0, bonus:0 });
+}
+function buildVipPoints(comments, omikujiRows){
   const m = {};
   (comments || []).forEach(c=>{
     if(c.is_admin) return;                       // 運営の返信は加点しない
-    const nm = String(c.name ?? '').trim();
-    if(!nm) return;                              // 名無しは集計対象外
-    const k = vipKey(nm);
-    (m[k] ||= { name:nm, comments:0, bonus:0 }).comments++;
+    const e = vipEntry(m, c.name); if(e) e.comments++;   // 名無しは対象外
+  });
+  (omikujiRows || []).forEach(o=>{               // おみくじで獲得したボーナス
+    const e = vipEntry(m, o.name); if(e) e.omikuji += Number(o.pts) || 0;
   });
   vipBonusList().forEach(b=>{                     // 手動加算（投げ銭など）
-    const nm = String(b.name ?? '').trim(); if(!nm) return;
-    const k = vipKey(nm);
-    (m[k] ||= { name:nm, comments:0, bonus:0 }).bonus += Number(b.pts) || 0;
+    const e = vipEntry(m, b.name); if(e) e.bonus += Number(b.pts) || 0;
   });
   Object.values(m).forEach(e=>{
-    e.points = e.comments * PT_PER_COMMENT + e.bonus;
+    e.points = e.comments * PT_PER_COMMENT + e.omikuji + e.bonus;
     e.tier   = tierForPoints(e.points);
   });
   VIP_POINTS = m;
   return m;
+}
+/* おみくじボーナスの取得（テーブル未作成でも落ちないように） */
+async function fetchOmikujiPoints(){
+  if(!sb) return [];
+  try{
+    const { data, error } = await sb.from('omikuji_points').select('name,pts');
+    if(error){ console.warn('omikuji_points:', error.message); return []; }
+    return data || [];
+  }catch(_){ return []; }
 }
 /* 名前 → 階級（集計済みのポイント表から）／VIP未満は null */
 function getVipTier(name){ const e = VIP_POINTS[vipKey(name)]; return e ? e.tier : null; }
@@ -713,7 +767,9 @@ function renderVipAdmin(){
     const badge = T ? `<span class="vip-item-badge">${T.icon} ${T.en}</span>` : '<span class="vip-rank-none">―</span>';
     const rankCls = i < 3 ? ` vip-rank-no-${i+1}` : '';
     const bonus = e.bonus;
-    const brk = `💬${e.comments}×100` + (bonus ? `　${bonus > 0 ? '+' : ''}${bonus.toLocaleString()}` : '');
+    const brk = `💬${e.comments}×100`
+      + (e.omikuji ? `　🎁+${e.omikuji.toLocaleString()}` : '')
+      + (bonus ? `　💰${bonus > 0 ? '+' : ''}${bonus.toLocaleString()}` : '');
     const resetBtn = bonus ? `<button class="del-btn" data-reset-bonus="${esc(vipKey(e.name))}" title="手動ボーナスを0に戻す">ﾎﾞｰﾅｽ解除</button>` : '';
     return `<div class="vip-rank-row${e.tier ? ' vip-'+e.tier : ''}">
       <span class="vip-rank-no${rankCls}">${i+1}</span>
@@ -758,7 +814,8 @@ async function loadComments(){
   if(!sb) return;
   const { data, error } = await sb.from('comments').select('*').order('created_at',{ascending:true});
   if(error){ console.warn(error); return; }
-  buildVipPoints(data);   // 全コメントからVIPポイントを集計（一般＋日記）→装飾・ランキングに使用
+  const omiPts = await fetchOmikujiPoints();
+  buildVipPoints(data, omiPts);   // コメント＋おみくじ＋手動加算でVIPポイントを集計→装飾・ランキング
   renderVipAdmin();
   const gen = data.filter(c=> !c.diary_id);               // 一般コメント欄（日記コメントは除外）
   const tops = gen.filter(c=> !c.parent_id).reverse();    // 最新を左に

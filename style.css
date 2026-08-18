@@ -318,6 +318,17 @@ body.is-admin .upload-row, body.is-admin .modal-actions{ display:flex !important
 .r-kyo .omi-kanji{ color:var(--rose); text-shadow:0 0 16px var(--rose); }
 .omi-img{ max-width:100%; max-height:300px; margin:14px auto 0; border-radius:12px; }
 .omi-msg{ margin-top:14px; font-family:var(--min); font-size:16px; line-height:1.8; color:var(--white); white-space:pre-wrap; }
+/* おみくじ ポイント受取フォーム（大吉・凶） */
+.omi-pt-form{ margin-top:18px; padding-top:16px; border-top:1px dashed var(--line); }
+.omi-pt-label{ font-family:var(--jp); font-weight:700; font-size:14px; color:var(--gold); line-height:1.6; margin-bottom:12px; }
+.omi-pt-label b{ font-size:17px; }
+.omi-pt-row{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; }
+.omi-pt-name{ flex:1 1 180px; min-width:150px; font-family:var(--jp); font-size:14px; color:#fff;
+  background:rgba(0,0,0,.28); border:1px solid var(--line); border-radius:10px; padding:10px 12px; outline:none; }
+.omi-pt-name:focus{ border-color:var(--sky); box-shadow:0 0 12px rgba(143,210,255,.4); }
+.omi-pt-btn{ flex:0 0 auto; }
+.omi-pt-note{ margin-top:9px; font-family:var(--dot); font-size:11px; color:var(--dim); line-height:1.6; }
+.omi-pt-done{ margin-top:10px; font-family:var(--jp); font-weight:700; font-size:14px; color:var(--sky); }
 
 .omikuji-btn{ position:relative; display:block; margin:20px auto 6px; width:clamp(150px,42vw,190px); height:clamp(150px,42vw,190px); border-radius:50%; border:none; background:transparent; cursor:pointer; transition:transform .12s; filter:drop-shadow(0 16px 22px rgba(0,0,0,.6)); }
 /* 透明ハウジング（クリアな台座） */
