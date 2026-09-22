@@ -12,7 +12,17 @@
 </head>
 <body>
 
-<!-- 背景 -->
+<!-- 背景（写真レイヤー） -->
+<div class="bgx" aria-hidden="true">
+  <div class="bgx-photo"><i></i><i></i><i></i></div>
+  <div class="bgx-veil"></div>
+  <div class="bgx-grain"></div>
+  <div class="bgx-band bgx-band--1" data-bgx-speed="0.15"></div>
+  <div class="bgx-band bgx-band--2" data-bgx-speed="0.30"></div>
+  <div class="bgx-band bgx-band--3" data-bgx-speed="0.08"></div>
+</div>
+
+<!-- 背景（既存：夜空グラデ・魔法陣・星） -->
 <div class="bg-wrap">
   <div class="bg-sky"></div>
   <div class="mcircle bg-circle one"><span></span><span></span><span></span><b></b></div>
@@ -49,6 +59,8 @@
   <p class="footer-grp">萌えフードル学園 大宮本校</p>
 </footer>
 
+<div class="bgx-hatch" aria-hidden="true"></div>
+
 <!-- ライトボックス -->
 <div class="lightbox" id="lightbox">
   <button class="lb-close" id="lbClose">✕</button>
@@ -58,5 +70,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="gallery.js"></script>
+<script src="bg.js"></script>
 </body>
 </html>

@@ -490,3 +490,144 @@ body.is-admin .access-bar{ display:flex !important; }
     text-align:center; padding:6px 0; border-radius:8px; }
   .vip-rank-head span:nth-child(5), .vip-rank-head span:nth-child(6){ display:none; }
 }
+
+/* ============================================================
+   背景デザイン（参考サイト風）
+   ─ 全面写真（3枚・拡大/縮小を交互）＋暗幕＋スキャンライン
+     ＋斜めハッチ＋斜めバンド（パララックス）＋巨大背景タイポ
+   ─ トップは丸写真を置かず、背景写真そのものを主役にする構成
+   DOMは index.html の .bgx / .bgx-hatch と bg.js が用意する
+   ============================================================ */
+:root{
+  --bgx-ink:#0c0722;
+  --bgx-gold:255,224,138;      /* --gold  */
+  --bgx-violet:183,160,255;    /* --emilia */
+  --bgx-sky:143,210,255;       /* --sky   */
+  --bgx-band-rot:-7deg;
+
+  /* 写真の見え具合と暗幕の濃さ */
+  --bgx-photo-op:.85;
+  --bgx-veil-top:.38;
+  --bgx-veil-mid:.14;
+  --bgx-veil-btm:.90;
+  --bgx-tint-op:.26;
+
+  /* 拡大・縮小の幅。大きくするほど動きが激しくなる */
+  --bgx-zoom-min:1.02;
+  --bgx-zoom-max:1.34;
+
+  --bgx-band1-h:90px;
+  --bgx-band2-h:40px;
+  --bgx-word-op:.085;          /* 巨大背景タイポの濃さ */
+}
+
+/* 既存背景は「色つきの薄い下地」に降格。魔法陣と星は世界観として残す */
+body{ background:var(--bgx-ink); }
+.bg-sky{ opacity:.24; }
+.bg-circle{ opacity:.28; }
+
+/* ---- 写真背景（固定・3枚クロスフェード） ---- */
+.bgx{ position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+.bgx-photo{ position:absolute; inset:0; }
+.bgx-photo i{
+  position:absolute; inset:-8%;
+  background-size:cover; background-position:center 28%;
+  opacity:0; animation:bgxZoomIn 27s infinite linear;
+  will-change:opacity, transform;
+}
+/* 1枚目＝拡大、2枚目＝縮小、3枚目＝拡大。交互にして動きを途切れさせない */
+.bgx-photo i:nth-child(1){ background-image:url(images/bg1.jpg); animation-delay:0s;  animation-name:bgxZoomIn;  }
+.bgx-photo i:nth-child(2){ background-image:url(images/bg2.jpg); animation-delay:9s;  animation-name:bgxZoomOut; }
+.bgx-photo i:nth-child(3){ background-image:url(images/bg3.jpg); animation-delay:18s; animation-name:bgxZoomIn;  }
+
+/* 表示区間（5%〜33%＝約7.5秒）にズームの全行程を収める。
+   倍率を戻すのは透明な区間なので、戻りは目に映らない */
+@keyframes bgxZoomIn{
+  0%   { opacity:0;                   transform:scale(var(--bgx-zoom-min)); }
+  5%   { opacity:var(--bgx-photo-op); }
+  33%  { opacity:var(--bgx-photo-op); }
+  38%  { opacity:0;                   transform:scale(var(--bgx-zoom-max)); }
+  100% { opacity:0;                   transform:scale(var(--bgx-zoom-min)); }
+}
+@keyframes bgxZoomOut{
+  0%   { opacity:0;                   transform:scale(var(--bgx-zoom-max)); }
+  5%   { opacity:var(--bgx-photo-op); }
+  33%  { opacity:var(--bgx-photo-op); }
+  38%  { opacity:0;                   transform:scale(var(--bgx-zoom-min)); }
+  100% { opacity:0;                   transform:scale(var(--bgx-zoom-max)); }
+}
+@media (max-width:640px){
+  .bgx-photo i{ background-position:center 22%; }
+  .bgx-photo i:nth-child(3){ background-position:center center; }
+}
+
+/* ---- 暗幕（写真の上・文字の下）---- */
+.bgx-veil{ position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse at 50% 34%, rgba(var(--bgx-violet), var(--bgx-tint-op)) 0%, transparent 62%),
+    linear-gradient(180deg,
+      rgba(12,7,34,var(--bgx-veil-top))   0%,
+      rgba(12,7,34,var(--bgx-veil-mid))  38%,
+      rgba(12,7,34,var(--bgx-veil-btm)) 100%);
+}
+
+/* ---- 質感（スキャンライン＋周辺減光／全面の斜めハッチ）---- */
+.bgx-grain{ position:absolute; inset:0; mix-blend-mode:multiply; opacity:.55;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,.72) 100%);
+}
+.bgx-hatch{ position:fixed; inset:0; z-index:9; pointer-events:none; mix-blend-mode:overlay;
+  background-image:
+    repeating-linear-gradient(115deg, rgba(255,255,255,.028) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(25deg,  rgba(0,0,0,.20)        0 1px, transparent 1px 5px);
+}
+
+/* ---- 斜めバンド（スクロールでパララックス）---- */
+.bgx-band{ position:absolute; left:-30%; width:160%; pointer-events:none;
+  will-change:transform; backface-visibility:hidden;
+  transform:translateY(var(--bgx-y,0px)) rotate(var(--bgx-band-rot)); }
+.bgx-band--1{ top:8%;     height:var(--bgx-band1-h);
+  background:linear-gradient(90deg, rgba(var(--bgx-violet),.90), rgba(var(--bgx-violet),.22) 70%, transparent); }
+.bgx-band--2{ bottom:16%; height:var(--bgx-band2-h);
+  background:linear-gradient(90deg, rgba(var(--bgx-gold),.80), transparent 78%); }
+.bgx-band--3{ top:72%;    height:14px; opacity:.85;
+  background:linear-gradient(90deg, transparent, rgba(var(--bgx-sky),.85) 40%, transparent); }
+
+/* ---- 巨大背景タイポ（セクションの奥・パララックス）---- */
+.bgx-word{ position:absolute; z-index:0; pointer-events:none; user-select:none;
+  font-family:var(--fant); font-weight:900; white-space:nowrap;
+  font-size:clamp(4.5rem,20vw,15rem); line-height:1;
+  color:#fff; opacity:var(--bgx-word-op); letter-spacing:.04em;
+  top:4%; left:-3%;
+  transform:translateY(var(--bgx-y,0px)) rotate(-8deg); }
+.section{ position:relative; }
+.section > *:not(.bgx-word){ position:relative; z-index:1; }
+
+/* ---- トップ（丸写真を置かず、背景写真を主役にする）---- */
+.hero{
+  min-height:88svh; min-height:88vh;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:90px 18px 40px;
+}
+.hero-info{ margin-top:0; }
+.hero-name{ font-size:clamp(64px,17vw,150px);
+  text-shadow:0 0 18px var(--sky),0 0 46px rgba(183,160,255,.6),0 6px 30px rgba(0,0,0,.95); }
+.hero-en{ font-size:clamp(13px,3.4vw,20px); letter-spacing:5px; }
+.hero-tag,.hero-en{ text-shadow:0 2px 14px rgba(0,0,0,.95); }
+
+/* ---- 可読性の担保（写真の上に文字が乗るので背面を締める）---- */
+.profile-wrap,
+.admin-panel,
+.comment-form{ background:rgba(12,7,34,.50); backdrop-filter:blur(10px); }
+.sec-title .en{ text-shadow:0 0 18px var(--sky), 0 2px 18px rgba(0,0,0,.85); }
+.sec-title .jp{ text-shadow:0 2px 10px rgba(0,0,0,.80); }
+.footer{ background:linear-gradient(180deg, transparent, rgba(12,7,34,.85) 40%); }
+
+/* 動きを減らす設定の人には写真の切替・ズームを止める */
+@media (prefers-reduced-motion:reduce){
+  .bgx-photo i{ animation:none; opacity:var(--bgx-photo-op); transform:none; }
+  .bgx-photo i:nth-child(2),
+  .bgx-photo i:nth-child(3){ opacity:0; }
+}

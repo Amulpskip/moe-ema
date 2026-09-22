@@ -146,7 +146,7 @@ const DEFAULT_PROFILE = {
   hobby:'旅行、ぎゃんぶる、散歩', skill:'ニャンちゅうのモノマネ、騎♡位', likes:'炭水化物',
   charm:'おしりのﾎｸﾛ', shop:'萌えフードル学園大宮本校', service:'甘々いちゃいちゃからすんごいやつまで！',
   reserve:'シティヘブンから',
-  twitter_url:'https://x.com/MOE_Emachi',
+  twitter_url:'https://x.com/Emachi_moe',
   heaven_url:'https://www.cityheaven.net/saitama/A1101/A110101/moegaku/girlid-44311496/',
   hero_url:'images/photo1.jpg',      // トップ写真（運営が変更可）
   profile_url:'images/photo2.jpg',   // プロフィール写真（運営が変更可）
@@ -175,7 +175,16 @@ function renderProfile(p){
     .map(([k,label])=> [label, esc(p[k])])
     .filter(r=> r[1] && r[1] !== 'undefined' && r[1] !== 'null');
   $('#profileData').innerHTML = rows.map(r=>`<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
-  if(p.twitter_url){ $('#snsBtn').href = p.twitter_url; }
+  if(p.twitter_url){
+    const sns = $('#snsBtn');
+    if(sns){
+      sns.href = p.twitter_url;
+      // 表示上の @ID もURLに追従させる（URLだけ変えてIDが古いまま、を防ぐ）
+      const handle = (p.twitter_url.match(/(?:x|twitter)\.com\/@?([A-Za-z0-9_]{1,15})/) || [])[1];
+      const label = sns.querySelector('.sns-info b');
+      if(handle && label) label.textContent = '@' + handle;
+    }
+  }
   if(p.heaven_url){ const h=$('#heavenBtn'); if(h) h.href = p.heaven_url; }
   // トップ写真・プロフィール写真（運営が変更したURL・CDN経由でリサイズ）
   const heroSrc = cdnImg(p.hero_url, 1000);
