@@ -151,6 +151,7 @@ const DEFAULT_PROFILE = {
   hero_url:'images/photo1.jpg',      // トップ写真（運営が変更可）
   profile_url:'images/photo2.jpg',   // プロフィール写真（運営が変更可）
   recommends:[],                     // おすすめ商品（アフィリエイト）
+  backgrounds:null,                  // 背景写真 [{url,x,y}]／null＝同梱の既定3枚を使う
   vipBonus:[],                       // VIP手動加算pt（[{name, pts}]／codoc投げ銭など）
   omikuji: JSON.parse(JSON.stringify(DEFAULT_OMIKUJI))   // おみくじの結果（運営が編集可）
 };
@@ -192,6 +193,8 @@ function renderProfile(p){
   const pSrc = cdnImg(p.profile_url, 640);
   const ppic = $('#profilePic'); if(ppic && p.profile_url && ppic.getAttribute('src') !== pSrc) ppic.src = pSrc;
   renderRecommends(Array.isArray(p.recommends) ? p.recommends : []);
+  renderBackgroundAdmin();
+  if(window.EmaBG) window.EmaBG.render(p.backgrounds);
   renderVipAdmin();
 }
 
@@ -202,6 +205,119 @@ async function saveProfile(){
   if(error){ toast('保存に失敗: '+error.message); return false; }
   return true;
 }
+
+/* ---------- 背景写真の管理（運営） ----------
+   profileCache.backgrounds に [{url,x,y}] で保存する。
+   null のあいだは bg.js の既定3枚が使われる（＝まだ触っていない状態）。
+   x/y は background-position の % ＝「写真のどこを画面の中心に置くか」。
+   スマホは画面が縦長で左右が大きく切られるため、ここで顔の位置を
+   指定できないと顔が画面から外れてしまう。                          */
+function bgList(){
+  const b = profileCache.backgrounds;
+  if(Array.isArray(b)) return b;
+  // 未設定なら既定をコピーして編集可能な状態にする
+  return (window.EmaBG ? window.EmaBG.DEFAULTS : []).map(o => ({...o}));
+}
+
+function renderBackgroundAdmin(){
+  const wrap = $('#bgList'); if(!wrap) return;
+  const list = bgList();
+  const empty = $('#bgEmpty'); if(empty) empty.hidden = list.length > 0;
+
+  wrap.innerHTML = list.map((bg, i) => `
+    <div class="bg-card" data-i="${i}">
+      <div class="bg-thumb" style="background-image:url('${esc(cdnImg(bg.url, 400))}'); background-position:${bg.x}% ${bg.y}%"></div>
+      <div class="bg-ctrl">
+        <label>よこ <input type="range" min="0" max="100" value="${bg.x}" data-bg-x="${i}"><span data-bg-xv="${i}">${bg.x}%</span></label>
+        <label>たて <input type="range" min="0" max="100" value="${bg.y}" data-bg-y="${i}"><span data-bg-yv="${i}">${bg.y}%</span></label>
+        <button class="del-btn" data-del-bg="${i}">削除</button>
+      </div>
+    </div>`).join('');
+}
+
+/* スライダー操作中は保存せず、見た目だけ即反映（離したときに保存） */
+$('#bgList') && $('#bgList').addEventListener('input', e=>{
+  const xi = e.target.dataset.bgX, yi = e.target.dataset.bgY;
+  const i = xi !== undefined ? +xi : (yi !== undefined ? +yi : -1);
+  if(i < 0) return;
+  const list = bgList();
+  if(!list[i]) return;
+  const v = +e.target.value;
+  if(xi !== undefined) list[i].x = v; else list[i].y = v;
+  profileCache.backgrounds = list;
+
+  const card = $(`.bg-card[data-i="${i}"] .bg-thumb`);
+  if(card) card.style.backgroundPosition = `${list[i].x}% ${list[i].y}%`;
+  const lbl = $(`[data-bg-${xi !== undefined ? 'xv' : 'yv'}="${i}"]`);
+  if(lbl) lbl.textContent = v + '%';
+  if(window.EmaBG) window.EmaBG.render(list);
+});
+
+$('#bgList') && $('#bgList').addEventListener('change', async e=>{
+  if(e.target.dataset.bgX === undefined && e.target.dataset.bgY === undefined) return;
+  if(await saveProfile()) toast('顔の位置を保存しました');
+});
+
+$('#bgList') && $('#bgList').addEventListener('click', async e=>{
+  const del = e.target.closest('[data-del-bg]'); if(!del) return;
+  if(!requireBackend()) return;
+  const i = +del.dataset.delBg;
+  const list = bgList();
+  const bg = list[i]; if(!bg) return;
+  if(!confirm('この背景写真を削除しますか？')) return;
+  list.splice(i, 1);
+  profileCache.backgrounds = list;
+  if(!await saveProfile()) return;
+  // Storageに上げたものだけ実体も消す（同梱画像 images/bg1.jpg などは残す）
+  const path = String(bg.url).split('/media/')[1];
+  if(path){ try{ await sb.storage.from('media').remove([decodeURIComponent(path)]); }catch(_){} }
+  toast('削除しました');
+  renderBackgroundAdmin();
+  if(window.EmaBG) window.EmaBG.render(list);
+});
+
+$('#bgAddBtn') && $('#bgAddBtn').addEventListener('click', async ()=>{
+  if(!requireBackend()) return;
+  const inp = $('#bgFile'); const files = [...(inp.files || [])];
+  if(!files.length){ toast('写真を選んでください'); return; }
+  const btn = $('#bgAddBtn'); btn.disabled = true;
+  const st = $('#bgStatus');
+  const list = bgList();
+  let ok = 0;
+  try{
+    for(let n = 0; n < files.length; n++){
+      const file = files[n];
+      st.textContent = `アップロード中… (${n+1}/${files.length})`;
+      const path = `bg_${Date.now()}_${n}_${file.name.replace(/[^\w.\-]/g,'_')}`;
+      const { error:upErr } = await sb.storage.from('media').upload(path, file, { cacheControl:'31536000', upsert:false });
+      if(upErr) throw upErr;
+      const { data:{ publicUrl } } = sb.storage.from('media').getPublicUrl(path);
+      // 人物写真は顔が上寄りのことが多いので、初期値はやや上に置く
+      list.push({ url: publicUrl, x: 50, y: 30 });
+      ok++;
+    }
+    profileCache.backgrounds = list;
+    if(await saveProfile()){
+      st.textContent = `${ok}枚を追加しました。スライダーで顔の位置を合わせてください。`;
+      inp.value = '';
+      toast('背景写真を追加しました');
+      renderBackgroundAdmin();
+      if(window.EmaBG) window.EmaBG.render(list);
+    }
+  }catch(e){ st.textContent = '失敗: ' + e.message; }
+  finally{ btn.disabled = false; }
+});
+
+$('#bgResetBtn') && $('#bgResetBtn').addEventListener('click', async ()=>{
+  if(!requireBackend()) return;
+  if(!confirm('背景を同梱の既定3枚に戻しますか？\n（追加した写真の設定は消えます。写真の実体は残ります）')) return;
+  profileCache.backgrounds = null;
+  if(await saveProfile()){
+    toast('既定に戻しました');
+    renderBackgroundAdmin();
+    if(window.EmaBG) window.EmaBG.render(null);
+  }
+});
 
 /* ---------- トップ／プロフィール写真の変更（運営） ---------- */
 function changeImage(targetKey){

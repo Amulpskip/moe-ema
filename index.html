@@ -49,6 +49,20 @@
     <span class="ab-item">本日 <b id="accToday">–</b></span>
     <span class="ab-item">累計 <b id="accTotal">–</b></span>
   </div>
+
+  <!-- 背景画像の管理（運営のみ） -->
+  <div class="admin-only admin-panel bg-panel" id="bgPanel">
+    <p class="panel-head">🖼 背景画像の管理</p>
+    <div class="upload-row">
+      <input type="file" id="bgFile" accept="image/*" multiple>
+      <button class="btn" id="bgAddBtn">追加</button>
+    </div>
+    <p class="upload-hint">複数まとめて選べます。追加したら各カードのスライダーで<b>顔の位置</b>を合わせてください。カードの枠はスマホ画面の見え方（縦長）をそのまま再現しています。</p>
+    <p class="upload-status" id="bgStatus"></p>
+    <div class="bg-list" id="bgList"></div>
+    <p class="empty-note" id="bgEmpty" hidden>背景写真が0枚です。夜空だけの表示になります。</p>
+    <button class="btn-ghost bg-reset" id="bgResetBtn">既定の3枚に戻す</button>
+  </div>
   <div class="hero-info">
     <p class="hero-tag">萌えフードル学園 大宮本校</p>
     <h1 class="hero-name">え<span>ま</span></h1>
