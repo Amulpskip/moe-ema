@@ -88,11 +88,7 @@ function closeLightbox(){ lb.classList.remove('show'); lbInner.innerHTML=''; }
 $('#lbClose').addEventListener('click', closeLightbox);
 lb.addEventListener('click', e=>{ if(e.target === lb) closeLightbox(); });
 
-// ギャラリーのクリック（委譲：DB項目・サンプル両対応）
-// 大画像クリックで拡大表示
-$('#gmStage') && $('#gmStage').addEventListener('click', ()=>{
-  const s = $('#gmStage'); if(s && s.dataset.src) openLightbox(s.dataset.type || 'image', s.dataset.src);
-});
+// ギャラリーのクリックは renderCarousel 側（#polaStage）で処理する
 
 /* ============================================================
    ここから下は Supabase 接続が必要
@@ -563,61 +559,184 @@ async function loadGallery(){
   galleryData = data.length ? data : SAMPLE_MEDIA.map((m,i)=> ({ id:'sample-'+i, type:'image', url:m.src, caption:m.cap }));
   $('#galleryEmpty').hidden = !!galleryData.length;
   if(galleryIndex >= galleryData.length) galleryIndex = 0;
-  renderGalleryMain(); renderGalleryThumbs(); startGallerySlideshow();
+  renderCarousel(); startGallerySlideshow();
 }
-function renderGalleryMain(){
-  const stage = $('#gmStage'); if(!stage || !galleryData.length) return;
-  const m = galleryData[galleryIndex];
-  let media, type = m.type, src = m.url;
+/* ---------- ポラロイド風カルーセル ----------
+   中央が主役、左右2枚ずつを傾けて小さく並べる。
+   位置は galleryIndex からの相対距離で決まる（端は反対側へ回り込む）。 */
+const POLA_NAME = 'EMA';
+/* |距離| → 横ずらし（カード幅の倍数）／縮小率／傾き／不透明度／重なり順 */
+const POLA_OFF = [0, 1.10, 1.85];
+const POLA_SC  = [1, 0.72, 0.55];
+const POLA_ROT = [0, 5, 8];
+const POLA_OP  = [1, 0.92, 0.66];
+const POLA_Z   = [30, 20, 10];
+
+function polaDate(v){
+  const d = v ? new Date(v) : null;
+  if(!d || isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}`;
+}
+/* カードごとに固定の微妙な傾き。手で並べた感じを出すための遊び */
+function polaTilt(i){ return ((i * 37) % 7 - 3) * 0.45; }
+
+/* 端をまたぐときは近い方向へ回り込ませる（例：最後→最初は「右へ1」） */
+function polaDist(i, active, n){
+  let d = i - active;
+  if(d >  n/2) d -= n;
+  if(d < -n/2) d += n;
+  return d;
+}
+
+/* 実際に見える位置のカードだけ読み込ませるため、src は data-src に入れておく
+   （40枚あると全部一度に取りに行ってしまい、スマホで無駄な通信になる） */
+function polaMedia(m){
   if(isYouTube(m)){
-    const id = ytIdOf(m); type = 'youtube'; src = id;
-    media = `<img class="gm-media" src="${ytThumb(id,'hqdefault')}" alt=""><span class="play-badge"></span>`;
-  } else if(m.type === 'video'){
-    media = `<video class="gm-media" src="${esc(m.url)}#t=0.1" muted playsinline preload="metadata"></video><span class="play-badge"></span>`;
-  } else {
-    media = `<img class="gm-media" src="${esc(cdnImg(m.url,900))}" alt="">`;
+    return `<img data-src="${ytThumb(ytIdOf(m),'hqdefault')}" alt="" loading="lazy"><span class="play-badge"></span>`;
   }
-  const cap = m.caption ? `<figcaption class="gm-cap">${esc(m.caption)}</figcaption>` : '';
-  stage.innerHTML = media + cap;
-  stage.dataset.type = type; stage.dataset.src = src;
+  if(m.type === 'video'){
+    return `<video data-src="${esc(m.url)}#t=0.1" muted playsinline preload="none"></video><span class="play-badge"></span>`;
+  }
+  return `<img data-src="${esc(cdnImg(m.url, 720))}" alt="" loading="lazy">`;
 }
-function renderGalleryThumbs(){
-  const wrap = $('#galleryThumbs'); if(!wrap) return;
-  wrap.innerHTML = galleryData.map((m,i)=>{
+
+/* 表示範囲に入ったカードのメディアを読み込む（一度読んだらそのまま） */
+function polaLoad(card){
+  const el = card.querySelector('[data-src]');
+  if(!el) return;
+  el.src = el.dataset.src;
+  delete el.dataset.src;
+}
+
+function renderCarousel(){
+  const stage = $('#polaStage'); if(!stage) return;
+  if(!galleryData.length){ stage.innerHTML = ''; return; }
+  const avatar = cdnImg((profileCache && profileCache.profile_url) || 'images/photo2.jpg', 96);
+
+  stage.innerHTML = galleryData.map((m,i)=>{
     const real = m.id && !String(m.id).startsWith('sample');
-    const media = isYouTube(m)
-      ? `<img src="${ytThumb(ytIdOf(m),'mqdefault')}" alt="" loading="lazy"><span class="t-play">▶</span>`
-      : (m.type === 'video'
-        ? `<video src="${esc(m.url)}#t=0.1" muted preload="metadata"></video><span class="t-play">▶</span>`
-        : `<img src="${esc(cdnImg(m.url,320))}" alt="" loading="lazy">`);
-    const adm = real ? `<div class="thumb-admin admin-only">
+    const adm = real ? `<div class="pola-admin admin-only">
         <button class="t-mv" data-mv-media="${m.id}" data-dir="-1" title="前へ">◀</button>
         <button class="t-del" data-del-media="${m.id}" data-url="${esc(m.url)}" title="削除">✕</button>
-        <button class="t-mv" data-mv-media="${m.id}" data-dir="1" title="後ろへ">▶</button></div>` : '';
-    return `<div class="thumb${i===galleryIndex?' active':''}" data-idx="${i}">${media}${adm}</div>`;
+        <button class="t-mv" data-mv-media="${m.id}" data-dir="1" title="後ろへ">▶</button>
+      </div>` : '';
+    return `<figure class="pola-card" data-idx="${i}">
+      <div class="pola-photo">${polaMedia(m)}</div>
+      <figcaption class="pola-meta">
+        <span class="pola-avatar"><img src="${esc(avatar)}" alt="" loading="lazy"></span>
+        <p class="pola-head"><b>${POLA_NAME}</b><time>${polaDate(m.created_at)}</time></p>
+        <p class="pola-cap">${esc(m.caption || '')}</p>
+      </figcaption>
+      ${adm}
+    </figure>`;
   }).join('');
+  layoutCarousel();
 }
-function markActiveThumb(){ $$('#galleryThumbs .thumb').forEach((t,i)=> t.classList.toggle('active', i===galleryIndex)); }
+
+function layoutCarousel(){
+  const cards = $$('#polaStage .pola-card');
+  const n = cards.length; if(!n) return;
+  cards.forEach((c,i)=>{
+    const d = polaDist(i, galleryIndex, n);
+    const a = Math.abs(d);
+    c.classList.toggle('is-active', d === 0);
+    if(a <= 3) polaLoad(c);        // 次に出てくる1枚ぶんだけ先読みする
+    if(a > 2){
+      // 見えない位置のカードは中央に畳んで隠す（DOMは使い回す）
+      c.style.transform = 'translate(-50%,-50%) scale(.4)';
+      c.style.opacity = '0';
+      c.style.zIndex = '0';
+      c.style.pointerEvents = 'none';
+      c.setAttribute('aria-hidden','true');
+      return;
+    }
+    const dir = d < 0 ? -1 : 1;
+    const rot = dir * POLA_ROT[a] + polaTilt(i);   // 外側へ扇状に開く
+    c.style.transform =
+      `translate(-50%,-50%) translateX(calc(var(--pola-w) * ${(dir * POLA_OFF[a]).toFixed(3)}))` +
+      ` rotate(${rot.toFixed(2)}deg) scale(${POLA_SC[a]})`;
+    c.style.opacity = String(POLA_OP[a]);
+    c.style.zIndex = String(POLA_Z[a]);
+    c.style.pointerEvents = 'auto';
+    c.removeAttribute('aria-hidden');
+  });
+}
+
 function showGallery(i){
   if(!galleryData.length) return;
   galleryIndex = (i + galleryData.length) % galleryData.length;
-  renderGalleryMain(); markActiveThumb(); startGallerySlideshow();   // 手動操作でタイマーリセット
+  layoutCarousel(); startGallerySlideshow();   // 手動操作でタイマーリセット
 }
 function startGallerySlideshow(){
   clearInterval(gallerySlideTimer);
   if(galleryData.length < 2) return;
+  // カルーセルなので順送り（ランダムだと並びが飛んで見づらい）
   gallerySlideTimer = setInterval(()=>{
-    let n; do { n = Math.floor(Math.random()*galleryData.length); } while(n === galleryIndex);
-    galleryIndex = n; renderGalleryMain(); markActiveThumb();
-  }, 5000);   // 5秒ごとにランダムで大画像を変更
+    galleryIndex = (galleryIndex + 1) % galleryData.length;
+    layoutCarousel();
+  }, 5000);
 }
-// 左右ナビ＆サムネ選択
+
+// 左右ナビ
 $('#gmPrev') && $('#gmPrev').addEventListener('click', ()=> showGallery(galleryIndex - 1));
 $('#gmNext') && $('#gmNext').addEventListener('click', ()=> showGallery(galleryIndex + 1));
-$('#galleryThumbs') && $('#galleryThumbs').addEventListener('click', e=>{
-  if(e.target.closest('.thumb-admin')) return;
-  const t = e.target.closest('.thumb'); if(!t) return;
-  showGallery(parseInt(t.dataset.idx,10));
+
+// カードのクリック：中央なら拡大、左右ならそのカードへ移動
+$('#polaStage') && $('#polaStage').addEventListener('click', e=>{
+  if(e.target.closest('.pola-admin')) return;
+  const card = e.target.closest('.pola-card'); if(!card) return;
+  const i = parseInt(card.dataset.idx, 10);
+  if(i !== galleryIndex){ showGallery(i); return; }
+  const m = galleryData[i]; if(!m) return;
+  if(isYouTube(m)) openLightbox('youtube', ytIdOf(m));
+  else openLightbox(m.type === 'video' ? 'video' : 'image', m.url);
+});
+
+// スワイプ操作（スマホ）
+(function polaSwipe(){
+  const stage = $('#polaStage'); if(!stage) return;
+  let x0 = null, y0 = null;
+  stage.addEventListener('touchstart', e=>{
+    const t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY;
+  }, { passive:true });
+  stage.addEventListener('touchend', e=>{
+    if(x0 === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - x0, dy = t.clientY - y0;
+    x0 = null;
+    // 横方向がはっきり優勢なときだけ反応（縦スクロールを邪魔しない）
+    if(Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5){
+      showGallery(galleryIndex + (dx < 0 ? 1 : -1));
+    }
+  }, { passive:true });
+})();
+
+// 運営：並び替え（◀▶）・削除（✕）
+$('#polaStage') && $('#polaStage').addEventListener('click', async e=>{
+  const mv  = e.target.closest('[data-mv-media]');
+  const del = e.target.closest('[data-del-media]');
+  if(!mv && !del) return;
+  e.stopPropagation();
+  if(mv){
+    const id = mv.dataset.mvMedia, dir = parseInt(mv.dataset.dir,10);
+    const idx = galleryData.findIndex(m=> String(m.id) === String(id)); const j = idx + dir;
+    if(idx < 0 || j < 0 || j >= galleryData.length) return;
+    [galleryData[idx], galleryData[j]] = [galleryData[j], galleryData[idx]];
+    try{
+      await Promise.all(galleryData.map((m,i)=> sb.from('media').update({ sort:i }).eq('id', m.id)));
+      toast('順番を変更しました'); loadGallery();
+    }catch(err){ toast('順番変更に失敗: '+err.message); }
+    return;
+  }
+  if(!confirm('この投稿を削除しますか？')) return;
+  const id = del.dataset.delMedia, url = del.dataset.url;
+  try{
+    const path = url.split('/media/')[1];
+    if(path) await sb.storage.from('media').remove([decodeURIComponent(path)]);
+    await sb.from('media').delete().eq('id', id);
+    toast('削除しました'); loadGallery();
+  }catch(err){ toast('削除失敗: '+err.message); }
 });
 
 // アップロード
@@ -652,33 +771,6 @@ $('#ytAddBtn') && $('#ytAddBtn').addEventListener('click', async ()=>{
   const { error } = await sb.from('media').insert({ type:'video', url:'youtube:'+id, caption: $('#mediaCaption').value.trim() || null });
   if(error){ toast('追加失敗: '+error.message); return; }
   $('#ytUrl').value=''; $('#mediaCaption').value=''; toast('YouTube動画を追加しました'); loadGallery();
-});
-
-// 運営：サムネの並び替え（◀▶）・削除（✕）
-$('#galleryThumbs') && $('#galleryThumbs').addEventListener('click', async e=>{
-  const mv  = e.target.closest('[data-mv-media]');
-  const del = e.target.closest('[data-del-media]');
-  if(!mv && !del) return;
-  e.stopPropagation();
-  if(mv){
-    const id = mv.dataset.mvMedia, dir = parseInt(mv.dataset.dir,10);
-    const idx = galleryData.findIndex(m=> String(m.id) === String(id)); const j = idx + dir;
-    if(idx < 0 || j < 0 || j >= galleryData.length) return;
-    [galleryData[idx], galleryData[j]] = [galleryData[j], galleryData[idx]];
-    try{
-      await Promise.all(galleryData.map((m,i)=> sb.from('media').update({ sort:i }).eq('id', m.id)));
-      toast('順番を変更しました'); loadGallery();
-    }catch(err){ toast('順番変更に失敗: '+err.message); }
-    return;
-  }
-  if(!confirm('この投稿を削除しますか？')) return;
-  const id = del.dataset.delMedia, url = del.dataset.url;
-  try{
-    const path = url.split('/media/')[1];
-    if(path) await sb.storage.from('media').remove([decodeURIComponent(path)]);
-    await sb.from('media').delete().eq('id', id);
-    toast('削除しました'); loadGallery();
-  }catch(err){ toast('削除失敗: '+err.message); }
 });
 
 /* ---------- 日記 ---------- */

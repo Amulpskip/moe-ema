@@ -112,13 +112,13 @@
     <p class="upload-status" id="uploadStatus"></p>
   </div>
 
-  <div class="gallery-main" id="galleryMain">
-    <button class="gm-nav gm-prev" id="gmPrev" aria-label="前の画像">‹</button>
-    <div class="gm-stage" id="gmStage"></div>
-    <button class="gm-nav gm-next" id="gmNext" aria-label="次の画像">›</button>
+  <!-- ポラロイド風カルーセル（中央が主役・左右は傾けて小さく） -->
+  <div class="pola-wrap" id="galleryMain">
+    <div class="pola-stage" id="polaStage"></div>
+    <button class="pola-nav pola-prev" id="gmPrev" aria-label="前の写真">←</button>
+    <button class="pola-nav pola-next" id="gmNext" aria-label="次の写真">→</button>
   </div>
-  <p class="scroll-hint">← サムネイルを横スクロールで全部見れる →</p>
-  <div class="gallery-thumbs" id="galleryThumbs"></div>
+  <p class="scroll-hint">← 左右スワイプ・カードをタップで大きく表示 →</p>
   <a class="btn gallery-more" href="gallery.html">📷 写真・動画をぜんぶ見る →</a>
   <p class="empty-note" id="galleryEmpty" hidden>まだ投稿がありません。</p>
 </section>
