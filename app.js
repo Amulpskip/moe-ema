@@ -554,7 +554,8 @@ let gallerySlideTimer = null;
 
 async function loadGallery(){
   if(!sb) return;
-  const { data, error } = await sb.from('media').select('*').order('sort',{ascending:true}).order('created_at',{ascending:false});
+  // 時系列（新しい順）。先頭 = 最新の1枚
+  const { data, error } = await sb.from('media').select('*').order('created_at',{ascending:false});
   if(error){ console.warn(error); return; }
   galleryData = data.length ? data : SAMPLE_MEDIA.map((m,i)=> ({ id:'sample-'+i, type:'image', url:m.src, caption:m.cap }));
   $('#galleryEmpty').hidden = !!galleryData.length;
@@ -617,9 +618,7 @@ function renderCarousel(){
   stage.innerHTML = galleryData.map((m,i)=>{
     const real = m.id && !String(m.id).startsWith('sample');
     const adm = real ? `<div class="pola-admin admin-only">
-        <button class="t-mv" data-mv-media="${m.id}" data-dir="-1" title="前へ">◀</button>
         <button class="t-del" data-del-media="${m.id}" data-url="${esc(m.url)}" title="削除">✕</button>
-        <button class="t-mv" data-mv-media="${m.id}" data-dir="1" title="後ろへ">▶</button>
       </div>` : '';
     return `<figure class="pola-card" data-idx="${i}">
       <div class="pola-photo">${polaMedia(m)}</div>
@@ -661,8 +660,17 @@ function layoutCarousel(){
     c.style.pointerEvents = 'auto';
     c.removeAttribute('aria-hidden');
   });
+  updateLatestBtn();
 }
 
+/* 先頭(=最新)にいるかどうかでボタンの見た目を切り替える。
+   常に置いておき、押せるかどうかだけ変える（出し入れすると下がガタつくため） */
+function updateLatestBtn(){
+  const b = $('#polaLatest'); if(!b) return;
+  const atNewest = galleryIndex === 0;
+  b.disabled = atNewest;
+  b.textContent = atNewest ? '最新を表示中' : '⏮ 最新の写真へ戻る';
+}
 function showGallery(i){
   if(!galleryData.length) return;
   galleryIndex = (i + galleryData.length) % galleryData.length;
@@ -677,6 +685,9 @@ function startGallerySlideshow(){
     layoutCarousel();
   }, 5000);
 }
+
+// 最新（先頭）へ一発で戻る
+$('#polaLatest') && $('#polaLatest').addEventListener('click', ()=> showGallery(0));
 
 // 左右ナビ
 $('#gmPrev') && $('#gmPrev').addEventListener('click', ()=> showGallery(galleryIndex - 1));
@@ -712,23 +723,11 @@ $('#polaStage') && $('#polaStage').addEventListener('click', e=>{
   }, { passive:true });
 })();
 
-// 運営：並び替え（◀▶）・削除（✕）
+// 運営：削除（✕）　※並びは投稿日時の新しい順で固定なので手動並び替えは無し
 $('#polaStage') && $('#polaStage').addEventListener('click', async e=>{
-  const mv  = e.target.closest('[data-mv-media]');
   const del = e.target.closest('[data-del-media]');
-  if(!mv && !del) return;
+  if(!del) return;
   e.stopPropagation();
-  if(mv){
-    const id = mv.dataset.mvMedia, dir = parseInt(mv.dataset.dir,10);
-    const idx = galleryData.findIndex(m=> String(m.id) === String(id)); const j = idx + dir;
-    if(idx < 0 || j < 0 || j >= galleryData.length) return;
-    [galleryData[idx], galleryData[j]] = [galleryData[j], galleryData[idx]];
-    try{
-      await Promise.all(galleryData.map((m,i)=> sb.from('media').update({ sort:i }).eq('id', m.id)));
-      toast('順番を変更しました'); loadGallery();
-    }catch(err){ toast('順番変更に失敗: '+err.message); }
-    return;
-  }
   if(!confirm('この投稿を削除しますか？')) return;
   const id = del.dataset.delMedia, url = del.dataset.url;
   try{

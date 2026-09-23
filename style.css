@@ -300,7 +300,22 @@ body.is-admin .upload-row, body.is-admin .modal-actions{ display:flex !important
 .pola-prev:hover{ transform:translate(calc(-50% - var(--pola-w) * .62), -50%) scale(1.08); }
 .pola-next:hover{ transform:translate(calc(-50% + var(--pola-w) * .62), -50%) scale(1.08); }
 
-/* 運営用の並び替え・削除。中央のカードにだけ出す */
+/* .scroll-hint は旧サムネ列に寄せるため margin-top:-22px が効いている。
+   カルーセルでは重なってしまうので、このセクションだけ戻す */
+#gallery .scroll-hint{ margin-top:10px; margin-bottom:10px; }
+
+/* 「最新へ戻る」。押せないときも場所は保つ（消すと下がガタつくため） */
+.pola-latest{ display:block; margin:0 auto;
+  font-family:var(--jp); font-weight:700; font-size:12px; letter-spacing:1px;
+  color:var(--night); background:linear-gradient(180deg,#fff,var(--sky));
+  border:none; border-radius:999px; padding:8px 20px; cursor:pointer;
+  box-shadow:0 0 16px rgba(143,210,255,.45); transition:.18s; }
+.pola-latest:hover:not(:disabled){ transform:translateY(-1px);
+  box-shadow:0 0 24px var(--emilia); }
+.pola-latest:disabled{ cursor:default; color:var(--dim);
+  background:transparent; border:1px solid var(--line); box-shadow:none; }
+
+/* 運営用の削除ボタン。中央のカードにだけ出す */
 .pola-admin{ position:absolute; top:6px; right:6px; display:none; gap:2px;
   background:rgba(12,7,34,.72); border-radius:8px; padding:2px; }
 .pola-card.is-active .pola-admin{ display:flex; }
